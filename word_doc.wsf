@@ -1,0 +1,8 @@
+<job id="MainProg">
+  <script language="VBScript" src="word_doc_functions.vbs"/>
+  <script language="VBScript" src="word_doc.vbs"/>
+  <script language="VBScript">
+    Main
+    WScript.Quit
+  </script>
+</job>
