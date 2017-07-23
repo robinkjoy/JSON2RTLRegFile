@@ -1,6 +1,12 @@
 from math import log2, ceil
 from operator import attrgetter
-import rtl_str
+
+def import_strings(lang):
+    global rtl_str
+    if lang == 'vhdl':
+        import vhdl_str as rtl_str
+    else:
+        import verilog_str as rtl_str
 
 def get_max_lengths(regs, axi_clock_name):
     max_all = 0
@@ -20,30 +26,31 @@ def get_max_lengths(regs, axi_clock_name):
     return max_all, max_cdc, max_ctrl
 
 def write_cdc_clocks(f, clocks, axi_clock_name, pad):
-    f.write('    -- Clocks\n')
+    f.write(rtl_str.clock_comment)
     for clock in clocks:
         if clock.name == axi_clock_name:
             continue
-        f.write(rtl_str.st.format(clock.name, pad, 'in '))
+        f.write(rtl_str.st_in.format(name=clock.name, pad=pad))
 
 def write_ports(f, regs, pad):
-    f.write('    -- PL Ports\n')
+    f.write(rtl_str.pl_port_comment)
     for reg in regs:
         if reg.placcess == 'nc':
             continue
-        direction = 'in ' if reg.placcess == 'w' else 'out'
+        st = rtl_str.st_in if reg.placcess == 'w' else rtl_str.st_out
+        sv = rtl_str.sv_in if reg.placcess == 'w' else rtl_str.sv_out
         for field in reg.fields:
             port_name = reg.name.lower()+'_'+field.name.lower()
             if field.msb == field.lsb:
-                f.write(rtl_str.st.format(port_name, pad, direction))
+                f.write(st.format(name=port_name, pad=pad))
             else:
-                f.write(rtl_str.sv.format(port_name, pad, direction, field.msb-field.lsb))
+                f.write(sv.format(name=port_name, pad=pad, width=field.msb-field.lsb))
             if field.access == 'rwclr':
-                f.write(rtl_str.st.format(port_name+'_vld', pad, direction))
+                f.write(st.format(name=port_name+'_vld', pad=pad))
 
 def write_reg_signals(f, regs):
     for i, reg in enumerate(regs):
-        f.write(rtl_str.reg_signal.format(i, ' ' if len(regs) > 9 and i <= 9 else ''))
+        f.write(rtl_str.reg_signal.format(num=i, pad=' ' if len(regs) > 9 and i <= 9 else ''))
 
 def write_cdc_signals(f, regs, axi_clock_name, pad):
     for reg in regs:
@@ -52,11 +59,11 @@ def write_cdc_signals(f, regs, axi_clock_name, pad):
                 continue
             sig_name = reg.name.lower()+'_'+field.name.lower()
             if field.msb == field.lsb:
-                f.write(rtl_str.signal_st.format(sig_name+'_sync', pad+5))
+                f.write(rtl_str.signal_st.format(name=sig_name+'_sync', pad=pad+5))
             else:
-                f.write(rtl_str.signal_sv.format(sig_name+'_sync', pad+5, field.msb-field.lsb))
+                f.write(rtl_str.signal_sv.format(name=sig_name+'_sync', pad=pad+5, width=field.msb-field.lsb))
             if field.access == 'rwclr':
-                f.write(rtl_str.signal_st.format(sig_name+'_vld_sync', pad+5))
+                f.write(rtl_str.signal_st.format(name=sig_name+'_vld_sync', pad=pad+5))
 
 def write_reg_resets(f, regs):
     for i, reg in enumerate(regs):
@@ -74,33 +81,39 @@ def write_axi_keep_value(i, reg, indent):
         s = '\n'+' '*indent+slv+' <= '
         sclr.sort(key=attrgetter('msb'), reverse=True)
         prev_lsb = 31
+        s += rtl_str.axi_sclr_part1
         for j, field in enumerate(sclr):
             if j != 0:
-                s += ' & '
+                s += rtl_str.axi_sclr_part2
             if prev_lsb != field.msb:
-                s += slv+'('+str(prev_lsb)+' downto '+str(field.lsb+1)+') & '
+                s += slv+rtl_str.axi_sclr_part3.format(prev_lsb, field.lsb+1)
+                s += rtl_str.axi_sclr_part2
             prev_lsb = field.lsb-1
-            s += '"'+'0'*(field.msb-field.lsb+1)+'"'
+            zeros = field.msb-field.lsb+1
+            s += rtl_str.axi_sclr_part4.format(size=zeros, val='0'*zeros)
         if prev_lsb != -1:
-            s += ' & '+slv+'('+str(prev_lsb)+' downto 0)'
-        s += ';'
+            s += rtl_str.axi_sclr_part2
+            s += slv+rtl_str.axi_sclr_part3.format(prev_lsb, 0)
+        s += rtl_str.axi_sclr_part5
     return s
 
-def write_axi_writes(f, regs, mem_addr_bits):
+def write_axi_writes(f, regs, mem_addr_bits, lang):
+    indent = 14 if lang == 'vhdl' else 10
     for i, reg in enumerate(regs):
         if reg.placcess == 'r':
-            f.write(rtl_str.axi_write_assign.format(
-                format(i, '0'+str(mem_addr_bits)+'b'), i))
-            s = write_axi_keep_value(i, reg, 12)
+            f.write(rtl_str.axi_write_assign.format(len=mem_addr_bits,
+                val=format(i, '0'+str(mem_addr_bits)+'b'), num=i))
+            s = write_axi_keep_value(i, reg, indent)
             if s != '':
                 f.write(rtl_str.axi_write_assign_else)
                 f.write(s)
             f.write(rtl_str.axi_write_assign_end)
 
-def write_axi_keep_values(f, regs, indent):
+def write_axi_keep_values(f, regs, lang):
     s = ''
+    indent = 12 if lang == 'vhdl' else 8
     for i, reg in enumerate(regs):
-        s += write_axi_keep_value(i, reg, 10)
+        s += write_axi_keep_value(i, reg, indent)
     if s != '':
         f.write(rtl_str.axi_write_else)
         f.write(s)
@@ -113,8 +126,8 @@ def reg_data_out_sensitivity(regs):
 
 def write_reg_data_out_when(f, regs, mem_addr_bits):
     for i in range(len(regs)):
-        f.write(rtl_str.reg_data_out_when.format(
-            format(i, '0'+str(mem_addr_bits)+'b'), i))
+        f.write(rtl_str.reg_data_out_when.format(size=mem_addr_bits,
+            num_bin=format(i, '0'+str(mem_addr_bits)+'b'), num=i))
 
 def write_ctrl_sig_assgns(f, regs, axi_clock_name, pad):
     for i, reg in enumerate(regs):
@@ -149,8 +162,10 @@ def write_sts_sig_assgns(f, regs, mem_addr_bits, axi_clock_name):
                     reg_no=i, msb=field.msb, lsb=field.lsb,
                     signal=sig_name+sync,
                     addr_bin=format(i, '0'+str(mem_addr_bits)+'b'),
+                    size=mem_addr_bits,
                     strb_msb=field.msb//8, strb_lsb=field.lsb//8,
-                    strb_1s='1'*(field.msb//8-field.lsb//8+1)
+                    strb_1s='1'*(field.msb//8-field.lsb//8+1),
+                    strb_size=field.msb//8-field.lsb//8+1
                     ))
             else:
                 tmpl = rtl_str.sts_sig_assgns_no_clr_1bit if field.msb == field.lsb else rtl_str.sts_sig_assgns_no_clr
@@ -180,9 +195,11 @@ def write_cdc(f, regs, axi_clock):
                                 src_per=src_per, dst_per=dst_per))
 
 # main function
-def generate_rtl(regs, axi_clock, clocks):
+def generate_rtl(lang, regs, axi_clock, clocks):
+    import_strings(lang)
     max_all, max_cdc, max_ctrl = get_max_lengths(regs, axi_clock.name)
-    f = open('axilite_reg_if.vhd', 'w')
+    file_ext = 'v' if lang == 'verilog' else 'vhd'
+    f = open('axilite_reg_if.'+file_ext, 'w')
     f.write(rtl_str.libraries)
     f.write(rtl_str.entity_header.format(32, 8))
     pad = max(max_all, 13)
@@ -200,11 +217,11 @@ def generate_rtl(regs, axi_clock, clocks):
     f.write(rtl_str.axi_write_header)
     write_reg_resets(f, regs)
     f.write(rtl_str.axi_write_else_header)
-    write_axi_writes(f, regs, mem_addr_bits)
-    write_axi_keep_values(f, regs, 10)
+    write_axi_writes(f, regs, mem_addr_bits, lang)
+    write_axi_keep_values(f, regs, lang)
     f.write(rtl_str.axi_write_footer)
     f.write(rtl_str.axi_logic2)
-    f.write(rtl_str.reg_data_out_header.format(reg_data_out_sensitivity(regs)))
+    f.write(rtl_str.reg_data_out_header.format(sens=reg_data_out_sensitivity(regs)))
     write_reg_data_out_when(f, regs, mem_addr_bits)
     f.write(rtl_str.reg_data_out_footer_axi_logic)
     f.write(rtl_str.ctrl_sig_assgns_header)
@@ -216,62 +233,4 @@ def generate_rtl(regs, axi_clock, clocks):
     f.write(rtl_str.sts_sig_assgns_footer)
     write_cdc(f, regs, axi_clock)
     f.write(rtl_str.arc_footer)
-    f.close()
-
-# PL reg package
-
-def get_max_len_pl_c (regs):
-    max_reg_name_len = 0
-    max_reg_mask_len = 0
-    for reg in regs:
-        if len(reg.fields) == 1:
-            max_reg_name_len = max(len(reg.name)+len(reg.fields[0].name)+5, max_reg_name_len)
-        else:
-            max_reg_name_len = max(len(reg.name)+4, max_reg_name_len)
-        for field in reg.fields:
-            if field.msb != 31 or field.lsb != 0:
-                max_reg_mask_len = max(len(reg.name+'_'+field.name)+5, max_reg_mask_len)
-    return (max_reg_name_len, max_reg_mask_len)
-
-def write_reg_addrs(f, regs, str_templ, max_len):
-    for i, reg in enumerate(regs):
-        if len(reg.fields) == 1:
-            f.write(str_templ.format((reg.name+'_'+reg.fields[0].name).upper()+'_REG',
-                max_len, i*4))
-        else:
-            f.write(str_templ.format(reg.name.upper(), max_len, i*4))
-
-def get_mask(msb, lsb):
-    temp = 0
-    for i in range(lsb, msb+1):
-        temp = temp + 2**i
-    return format(temp, '08x')
-
-def write_masks(f, regs, str_templ, max_len):
-    for i, reg in enumerate(regs):
-        for field in reg.fields:
-            if field.msb != 31 or field.lsb != 0:
-                f.write(str_templ.format((reg.name+'_'+field.name).upper()+'_MASK',
-                    max_len, get_mask(field.msb, field.lsb)))
-
-# pkg main function
-def generate_pkg(regs, max_lens):
-    f = open('pl_reg_pkg.vhd', 'w')
-    f.write(rtl_str.pkg_header)
-    write_reg_addrs(f, regs, rtl_str.pkg_reg_addr, max_lens[0])
-    f.write('\n')
-    write_masks(f, regs, rtl_str.pkg_mask, max_lens[1])
-    f.write(rtl_str.pkg_footer)
-    f.close()
-
-# C header file
-def generate_c_header(regs, max_lens):
-    f = open('pl_regs.h', 'w')
-    f.write(rtl_str.c_header)
-    f.write('\n// Register Offsets\n')
-    write_reg_addrs(f, regs, rtl_str.c_reg_addr, max_lens[0])
-    f.write('\n// Register Masks\n')
-    write_masks(f, regs, rtl_str.c_mask, max_lens[1])
-    f.write(rtl_str.c_read_write_fn)
-    f.write(rtl_str.c_footer)
     f.close()

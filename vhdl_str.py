@@ -9,8 +9,12 @@ entity axilite_reg_if is
     );
   port (
 '''
-st = '    {:{}} : {} std_logic;\n'
-sv = '    {:{}} : {} std_logic_vector({} downto 0);\n'
+st_in = '    {name:{pad}} : in  std_logic;\n'
+st_out = '    {name:{pad}} : out std_logic;\n'
+sv_in = '    {name:{pad}} : in  std_logic_vector({width} downto 0);\n'
+sv_out = '    {name:{pad}} : out std_logic_vector({width} downto 0);\n'
+clock_comment = '    -- Clocks\n'
+pl_port_comment = '    -- PL Ports\n'
 axi_ports_end = '''    -- AXILite Signal
     s_axi_aclk    {spaces}: in  std_logic;
     s_axi_areset  {spaces}: in  std_logic;
@@ -84,9 +88,9 @@ internal_signals = '''
 
 '''
 
-signal_sv = '  signal {:{}} : std_logic_vector({} downto 0) := (others => \'0\');\n'
-signal_st = '  signal {:{}} : std_logic := \'0\';\n'
-reg_signal = '  signal slv_reg{}{} : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0) := (others => \'0\');\n'
+signal_sv = '  signal {name:{pad}} : std_logic_vector({width} downto 0) := (others => \'0\');\n'
+signal_st = '  signal {name:{pad}} : std_logic := \'0\';\n'
+reg_signal = '  signal slv_reg{num}{pad} : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0) := (others => \'0\');\n'
 
 begin_io_assgns_axi_logic = '''
 begin
@@ -189,15 +193,20 @@ axi_write_else_header = '''
         loc_addr := axi_awaddr(ADDR_LSB + OPT_MEM_ADDR_BITS downto ADDR_LSB);
         if slv_reg_wren = '1' then'''
 axi_write_assign = '''
-          if loc_addr = b"{}" then
+          if loc_addr = b"{val}" then
             for i in 0 to (C_S_AXI_DATA_WIDTH/8-1) loop
               if s_axi_wstrb(i) = '1' then
-                slv_reg{}(i*8+7 downto i*8) <= s_axi_wdata(i*8+7 downto i*8);
+                slv_reg{num}(i*8+7 downto i*8) <= s_axi_wdata(i*8+7 downto i*8);
               end if;
             end loop;'''
 axi_write_assign_else = '\n          else'
 axi_write_assign_end = '\n          end if;'
 axi_write_else = '\n        else'
+axi_sclr_part1 = ''
+axi_sclr_part2 = ' & '
+axi_sclr_part3 = '({} downto {})'
+axi_sclr_part4 = '"{val}"'
+axi_sclr_part5 = ';'
 axi_write_footer = '''
         end if;
       end if;
@@ -290,18 +299,18 @@ axi_logic2 = '''
   slv_reg_rden <= axi_arready and s_axi_arvalid and (not axi_rvalid);
 '''
 reg_data_out_header = '''
-  process ({}axi_araddr, s_axi_areset, slv_reg_rden)
+  process ({sens}axi_araddr, s_axi_areset, slv_reg_rden)
     variable loc_addr : std_logic_vector(OPT_MEM_ADDR_BITS downto 0);
   begin
     if s_axi_areset = '1' then
-      reg_data_out <= (others => '1');
+      reg_data_out <= (others => '0');
     else
       -- Address decoding for reading registers
       loc_addr := axi_araddr(ADDR_LSB + OPT_MEM_ADDR_BITS downto ADDR_LSB);
       case loc_addr is'''
 reg_data_out_when = '''
-        when b"{}" =>
-          reg_data_out <= slv_reg{};'''
+        when b"{num_bin}" =>
+          reg_data_out <= slv_reg{num};'''
 reg_data_out_footer_axi_logic = '''
         when others =>
           reg_data_out <= (others => '0');
@@ -435,121 +444,3 @@ cdc_inst_pl_write_vld = '''
       );
 '''
 arc_footer = '\nend arch_imp;'
-
-
-# pkg
-pkg_header = libraries+'''use ieee.numeric_std.all;
-package pl_reg_pkg is
-
-'''
-pkg_reg_addr = '  constant {:{}} : natural := {};\n'
-pkg_mask = '  constant {:{}} : std_logic_vector (31 downto 0) := x"{}";\n'
-pkg_footer = '''
-  procedure axilite_write (
-    constant addr  : in  natural;
-    constant data  : in  std_logic_vector (31 downto 0);
-    constant per   : in  time;
-    signal clk     : in  std_logic;
-    signal awready : in  std_logic;
-    signal awvalid : out std_logic;
-    signal awaddr  : out std_logic_vector (31 downto 0);
-    signal wready  : in  std_logic;
-    signal wvalid  : out std_logic;
-    signal wdata   : out std_logic_vector (31 downto 0);
-    signal wstrb   : out std_logic_vector (3 downto 0);
-    signal bvalid  : in  std_logic;
-    signal bready  : out std_logic
-    );
-  procedure axilite_read (
-    constant addr  : in  natural;
-    variable data  : out std_logic_vector (31 downto 0);
-    constant per   : in  time;
-    signal clk     : in  std_logic;
-    signal arready : in  std_logic;
-    signal arvalid : out std_logic;
-    signal araddr  : out std_logic_vector (31 downto 0);
-    signal rready  : out std_logic;
-    signal rvalid  : in  std_logic;
-    signal rdata   : in  std_logic_vector (31 downto 0)
-    );
-
-end package pl_reg_pkg;
-
-package body pl_reg_pkg is
-
-  procedure axilite_write (
-    constant addr  : in  natural;
-    constant data  : in  std_logic_vector (31 downto 0);
-    constant per   : in  time;
-    signal clk     : in  std_logic;
-    signal awready : in  std_logic;
-    signal awvalid : out std_logic;
-    signal awaddr  : out std_logic_vector (31 downto 0);
-    signal wready  : in  std_logic;
-    signal wvalid  : out std_logic;
-    signal wdata   : out std_logic_vector (31 downto 0);
-    signal wstrb   : out std_logic_vector (3 downto 0);
-    signal bvalid  : in  std_logic;
-    signal bready  : out std_logic
-    ) is
-  begin
-    bready  <= '0';
-    awvalid <= '1';
-    awaddr  <= std_logic_vector(to_unsigned(addr, awaddr'length));
-    wvalid  <= '1';
-    wdata   <= data;
-    wstrb   <= (others => '1');
-    wait until rising_edge(clk) and awready = '1' and wready = '1';
-    awvalid <= '0';
-    wvalid  <= '0';
-    bready  <= '1';
-    wait until rising_edge(clk) and bvalid = '1';
-  end axilite_write;
-
-  procedure axilite_read (
-    constant addr  : in  natural;
-    variable data  : out std_logic_vector (31 downto 0);
-    constant per   : in  time;
-    signal clk     : in  std_logic;
-    signal arready : in  std_logic;
-    signal arvalid : out std_logic;
-    signal araddr  : out std_logic_vector (31 downto 0);
-    signal rready  : out std_logic;
-    signal rvalid  : in  std_logic;
-    signal rdata   : in  std_logic_vector (31 downto 0)
-    ) is
-  begin
-    rready  <= '0';
-    arvalid <= '1';
-    araddr  <= std_logic_vector(to_unsigned(addr, araddr'length));
-    wait until rising_edge(clk) and arready = '1';
-    arvalid <= '0';
-    rready  <= '1';
-    wait until rising_edge(clk) and rvalid = '1';
-    data    := rdata;
-  end axilite_read;
-
-end package body pl_reg_pkg;
-'''
-
-# c header
-c_header = '''#ifndef PL_REGS_H
-#define PL_REGS_H
-
-#include "xil_io.h"
-#include "xparameters.h"
-'''
-c_reg_addr = '#define {:{}} {}U\n'
-c_mask = '#define {:{}} 0x{}U\n'
-c_read_write_fn = '''
-/* Write to a PL Register */
-#define PL_WriteReg(RegOffset, RegisterValue) \\
-	Xil_Out32((XPAR_M_AXI_REG_BASEADDR) + (RegOffset), (RegisterValue))
-
-/* Read from a PL Register */
-#define PL_ReadReg(RegOffset) \\
-	Xil_In32((XPAR_M_AXI_REG_BASEADDR) + (RegOffset))
-'''
-c_footer='''
-#endif
-'''

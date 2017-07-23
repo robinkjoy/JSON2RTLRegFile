@@ -4,11 +4,14 @@ import argparse
 import load_json
 import validate
 import rtl_gen
+import extras_gen
 import doc_gen
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--no-doc', action='store_false',
         dest='doc', help='disable doc file generation')
+parser.add_argument('--lang', choices=['vhdl', 'verilog'],
+        dest='lang', help='target RTL language')
 parser.add_argument('--print', action='store_true',
         dest='vprint', help='print JSON contents')
 parser.add_argument('input_filename', help='Input JSON filename')
@@ -38,9 +41,9 @@ if args.vprint:
     print('\nResgisters\n')
     print(*regs, sep='\n')
 
-rtl_gen.generate_rtl(regs, axi_clock, clocks)
-max_lens = rtl_gen.get_max_len_pl_c(regs)
-rtl_gen.generate_pkg(regs, max_lens)
-rtl_gen.generate_c_header(regs, max_lens)
+rtl_gen.generate_rtl(args.lang, regs, axi_clock, clocks)
+max_lens = extras_gen.get_max_len_pl_c(regs)
+extras_gen.generate_pkg(regs, max_lens)
+extras_gen.generate_c_header(regs, max_lens)
 if args.doc:
     doc_gen.generate_word_doc(regs)

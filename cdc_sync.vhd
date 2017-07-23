@@ -43,7 +43,6 @@ architecture behav of cdc_sync is
   signal pulse_array : st_array                            := (others => '0');
 
   signal vld_array : st_array  := (others => '0');
-  signal vld_in    : std_logic := '0';
   signal vld_reg   : std_logic := '0';
 
 begin
@@ -130,7 +129,6 @@ begin
   SYNC_DAT : if not IS_PULSE generate
     cdc_vld : xpm_cdc_array_single
       generic map (
-
         -- Common module generics
         DEST_SYNC_FF   => 4,      -- integer; range: 2-10
         SIM_ASSERT_CHK => 1,      -- integer; 0=disable simulation messages, 1=enable simulation messages
