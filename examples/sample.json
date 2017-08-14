@@ -1,0 +1,58 @@
+{
+  "regs" : [
+    {
+      "name" : "DOWN_CTRL", "access" : "rw",
+      "desc" : "Downstream control reg",
+      "placcess" : "r",
+      "fields" : [
+        { "name" : "EN", "msb" : 1, "lsb" : 1, "attr" : "sclr",
+          "desc" : "Enable downstream frame."
+        },
+        { "name" : "EN1", "msb" : 0, "lsb" : 0, "attr" : "sclr",
+          "desc" : "Enable downstream frame."
+        }
+      ]
+    },
+    {
+      "name" : "UP_CTRL", "access" : "rw",
+      "placcess" : "r",
+      "fields" : [
+        {
+          "name" : "EN", "msb" : 0, "lsb" : 0,
+          "desc" : "Enable upstream"
+        },
+        {
+          "name" : "HSIZE", "lsb" : 1, "msb" : 7,
+          "desc" : "Upstream Hsize"
+        },
+        {
+          "name" : "VSIZE", "lsb" : 8, "msb" : 15,
+          "desc" : "Upstream Vsize"
+        }
+      ]
+    },
+    {
+      "name" : "UP_STS",
+      "placcess" : "w",
+      "fields" : [
+        {
+          "name" : "FRAME_NO", "msb" : 3 , "lsb" : 0, "access" : "ro",
+          "desc" : "Upstream frame number"
+        },
+        {
+          "name" : "FRAME_ERR", "msb" : 8, "lsb" : 8, "access" : "rwclr",
+          "desc" : "Upstream error"
+        }
+      ]
+    },
+    {
+      "name" : "SEM_CTRL",
+      "placcess" : "r", "access" : "rw",
+      "fields" : [
+        {
+        "name" : "EN", "msb" : 0, "lsb" : 0
+        }
+      ]
+    }
+  ]
+}

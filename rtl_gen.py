@@ -8,17 +8,18 @@ def import_strings(lang):
     else:
         import verilog_str as rtl_str
 
-def get_max_lengths(regs, axi_clock_name):
+def get_max_lengths(regs, axi_clock):
     max_all = 0
     max_cdc = 0
     max_ctrl = 0
+    axi_clock_name = axi_clock.name if axi_clock else None
     for reg in regs:
         for field in reg.fields:
             sig_len = len(reg.name)+len(field.name)+1
             if field.access == 'rwclr':
                 sig_len += 4
             max_all = max(sig_len, max_all)
-            if field.clock.name != axi_clock_name:
+            if axi_clock_name and field.clock.name != axi_clock_name:
                 max_cdc = max(sig_len, max_cdc)
                 sig_len += 5
             if reg.placcess == 'r':
@@ -129,12 +130,13 @@ def write_reg_data_out_when(f, regs, mem_addr_bits):
         f.write(rtl_str.reg_data_out_when.format(size=mem_addr_bits,
             num_bin=format(i, '0'+str(mem_addr_bits)+'b'), num=i))
 
-def write_ctrl_sig_assgns(f, regs, axi_clock_name, pad):
+def write_ctrl_sig_assgns(f, regs, axi_clock, pad):
+    axi_clock_name = axi_clock.name if axi_clock else None
     for i, reg in enumerate(regs):
         if reg.placcess != 'r':
             continue
         for field in reg.fields:
-            sync = '_sync' if field.clock.name != axi_clock_name else ''
+            sync = '_sync' if axi_clock_name and field.clock.name != axi_clock_name else ''
             sig_name = reg.name.lower()+'_'+field.name.lower()+sync
             if field.msb == field.lsb:
                 f.write(rtl_str.ctrl_sig_assgns_1bit.format(
@@ -148,12 +150,13 @@ def write_sts_sig_resets(f, regs):
         if reg.placcess == 'w':
             f.write(rtl_str.sts_sig_assgns_reset.format(i))
 
-def write_sts_sig_assgns(f, regs, mem_addr_bits, axi_clock_name):
+def write_sts_sig_assgns(f, regs, mem_addr_bits, axi_clock):
+    axi_clock_name = axi_clock.name if axi_clock else None
     for i, reg in enumerate(regs):
         if reg.placcess != 'w':
             continue
         for field in reg.fields:
-            sync = '_sync' if field.clock.name != axi_clock_name else ''
+            sync = '_sync' if axi_clock_name and field.clock.name != axi_clock_name else ''
             sig_name = reg.name.lower()+'_'+field.name.lower()
             if field.access == 'rwclr':
                 tmpl = rtl_str.sts_sig_assgns_with_clr_1bit if field.msb == field.lsb else rtl_str.sts_sig_assgns_with_clr
@@ -195,24 +198,27 @@ def write_cdc(f, regs, axi_clock):
                                 src_per=src_per, dst_per=dst_per))
 
 # main function
-def generate_rtl(lang, regs, axi_clock, clocks):
+def generate_rtl(lang, regs, axi_clock, clocks, cdc):
     import_strings(lang)
-    max_all, max_cdc, max_ctrl = get_max_lengths(regs, axi_clock.name)
+    max_all, max_cdc, max_ctrl = get_max_lengths(regs, axi_clock)
     file_ext = 'v' if lang == 'verilog' else 'vhd'
     f = open('axilite_reg_if.'+file_ext, 'w')
     f.write(rtl_str.libraries)
     f.write(rtl_str.entity_header.format(32, 8))
     pad = max(max_all, 13)
-    write_cdc_clocks(f, clocks, axi_clock.name, pad)
+    if clocks:
+        write_cdc_clocks(f, clocks, axi_clock.name, pad)
     write_ports(f, regs, pad)
     f.write(rtl_str.axi_ports_end(spaces=' '*(pad-13)))
     mem_addr_bits = ceil(log2(len(regs)))
-    f.write(rtl_str.components)
+    if cdc:
+        f.write(rtl_str.components)
     f.write(rtl_str.constants.format(mem_addr_bits-1))
     f.write(rtl_str.internal_signals)
     write_reg_signals(f, regs)
     f.write('\n')
-    write_cdc_signals(f, regs, axi_clock.name, max_cdc)
+    if cdc:
+        write_cdc_signals(f, regs, axi_clock.name, max_cdc)
     f.write(rtl_str.begin_io_assgns_axi_logic)
     f.write(rtl_str.axi_write_header)
     write_reg_resets(f, regs)
@@ -225,12 +231,13 @@ def generate_rtl(lang, regs, axi_clock, clocks):
     write_reg_data_out_when(f, regs, mem_addr_bits)
     f.write(rtl_str.reg_data_out_footer_axi_logic)
     f.write(rtl_str.ctrl_sig_assgns_header)
-    write_ctrl_sig_assgns(f, regs, axi_clock.name, max_ctrl)
+    write_ctrl_sig_assgns(f, regs, axi_clock, max_ctrl)
     f.write(rtl_str.sts_sig_assgns_header)
     write_sts_sig_resets(f, regs)
     f.write(rtl_str.sts_sig_assgns_reset_else)
-    write_sts_sig_assgns(f, regs, mem_addr_bits, axi_clock.name)
+    write_sts_sig_assgns(f, regs, mem_addr_bits, axi_clock)
     f.write(rtl_str.sts_sig_assgns_footer)
-    write_cdc(f, regs, axi_clock)
+    if cdc:
+        write_cdc(f, regs, axi_clock)
     f.write(rtl_str.arc_footer)
     f.close()

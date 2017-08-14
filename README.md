@@ -5,6 +5,11 @@ Usage:
 python JSONfilename [options]
 
 Options
---no-doc - disable word doc generation
+
+--doc - enable word doc generation
+
 --print - print json file content
+
 --lang - target language (vhdl or verilog)
+
+--cdc - enable generation of CDC signals. clocks should be specified

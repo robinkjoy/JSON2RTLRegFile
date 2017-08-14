@@ -1,5 +1,8 @@
 def get_clock(clocks, clock_name):
-    return next((clock for clock in clocks if clock.name == clock_name), None)
+    if clocks is not None:
+        return next((clock for clock in clocks if clock.name == clock_name), None)
+    else:
+        return None
 
 class Clock:
     def __init__(self, clock):

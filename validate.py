@@ -52,7 +52,7 @@ def load_validate_axi_clock(clocks, axi_clock_name):
     else:
         return None
 
-def validate_regs(regs):
+def validate_regs(regs, cdc):
     attributes = ['sclr']
     accesses = ['rw', 'ro', 'rwclr']
     placcesses = ['w', 'r', 'nc']
@@ -122,7 +122,7 @@ def validate_regs(regs):
                 if field.attr == 'sclr' and reg.placcess != 'r':
                     print(invalid_combo.format(reg_name, field_name, 'attribute', 'sclr', 'Read'))
                     valid = False
-                if field.clock is None:
+                if cdc and field.clock is None:
                     print(invalid_attr_reg.format('ERROR', reg_name, 'clock'))
                     valid = False
                 if field.lsb is None or field.msb is None:
