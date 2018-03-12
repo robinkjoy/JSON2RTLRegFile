@@ -3,10 +3,10 @@ from operator import attrgetter
 
 def import_strings(lang):
     global rtl_str
-    if lang == 'vhdl':
-        import vhdl_str as rtl_str
-    else:
+    if lang == 'verilog':
         import verilog_str as rtl_str
+    else:
+        import vhdl_str as rtl_str
 
 def get_max_lengths(regs, axi_clock):
     max_all = 0

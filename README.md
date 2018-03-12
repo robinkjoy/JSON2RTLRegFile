@@ -10,6 +10,6 @@ Options
 
 --print - print json file content
 
---lang - target language (vhdl or verilog)
+--lang - target language (vhdl or verilog) (default: verilog)
 
 --cdc - enable generation of CDC signals. clocks should be specified

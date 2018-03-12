@@ -10,8 +10,8 @@ import doc_gen
 parser = argparse.ArgumentParser()
 parser.add_argument('--doc', action='store_true',
         dest='doc', help='enable doc file generation')
-parser.add_argument('--lang', choices=['vhdl', 'verilog'],
-        dest='lang', help='target RTL language')
+parser.add_argument('--lang', default='verilog', choices=['vhdl', 'verilog'],
+        dest='lang', help='target RTL language (default: %(default)s)')
 parser.add_argument('--cdc', action='store_true',
         dest='cdc', help='generate clock domain crossing code (clocks should be defined and specified for each registers)')
 parser.add_argument('--print', action='store_true',
