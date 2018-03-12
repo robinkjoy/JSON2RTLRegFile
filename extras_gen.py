@@ -37,7 +37,7 @@ def write_masks(f, regs, str_templ, max_len):
 
 # pkg main function
 def generate_pkg(regs, max_lens):
-    f = open('pl_reg_pkg.vhd', 'w')
+    f = open('outputs/pl_reg_pkg.vhd', 'w')
     f.write(extras_str.pkg_header)
     write_reg_addrs(f, regs, extras_str.pkg_reg_addr, max_lens[0])
     f.write('\n')
@@ -47,7 +47,7 @@ def generate_pkg(regs, max_lens):
 
 # C header file
 def generate_c_header(regs, max_lens):
-    f = open('pl_regs.h', 'w')
+    f = open('outputs/pl_regs.h', 'w')
     f.write(extras_str.c_header)
     f.write('\n// Register Offsets\n')
     write_reg_addrs(f, regs, extras_str.c_reg_addr, max_lens[0])

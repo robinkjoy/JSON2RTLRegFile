@@ -202,7 +202,7 @@ def generate_rtl(lang, regs, axi_clock, clocks, cdc):
     import_strings(lang)
     max_all, max_cdc, max_ctrl = get_max_lengths(regs, axi_clock)
     file_ext = 'v' if lang == 'verilog' else 'vhd'
-    f = open('axilite_reg_if.'+file_ext, 'w')
+    f = open('outputs/axilite_reg_if.'+file_ext, 'w')
     f.write(rtl_str.libraries)
     f.write(rtl_str.entity_header.format(32, 8))
     pad = max(max_all, 13)

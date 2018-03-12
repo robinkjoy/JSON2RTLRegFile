@@ -26,7 +26,7 @@ def get_field_dict(i, f):
 
 def generate_word_doc (regs):
     # generate wscript for doc generation
-    f = open('word_doc.vbs', 'w')
+    f = open('outputs/word_doc.vbs', 'w')
     f.write(doc_str.vbs_header)
     for i, reg in enumerate(regs):
         f.write(doc_str.vbs_reg.format_map(get_reg_dict(i, reg)))
